@@ -1,0 +1,56 @@
+import pandas as pd
+from bokeh.io import curdoc
+from bokeh.layouts import column
+from bokeh.models import ColumnDataSource, Select
+from bokeh.plotting import figure
+
+# Load preprocessed data
+data = pd.read_csv('monthly_avg_response_times.csv', header=0)  # Use header=0 if the first row is the header
+
+# Prepare a list of unique ZIP codes
+zip_codes = data['8'].dropna().unique().astype(str).tolist()  # Accessing ZIP codes as a string
+
+# Create a ColumnDataSource for all data
+source_all = ColumnDataSource(data)
+
+# Initialize the plot
+p = figure(title="Average Incident Response Time (in hours)", 
+           x_axis_label='Month', 
+           y_axis_label='Response Time (hours)',
+           x_range=list(data['year_month'].unique().astype(str).tolist()))  # Use unique directly from the Series
+
+# Initial plot for all data
+p.line('year_month', 'response_time', source=source_all, legend_label='All 2020 Data', line_color='blue', line_width=2)
+
+# Create a ColumnDataSource for selected ZIP code data
+source_zip1 = ColumnDataSource(data[data['8'].astype(str) == zip_codes[0]])  # Using '8' for ZIP code
+source_zip2 = ColumnDataSource(data[data['8'].astype(str) == zip_codes[1]])
+
+# Add initial lines for selected ZIP codes
+line_zip1 = p.line('year_month', 'response_time', source=source_zip1, legend_label='ZIP Code 1', line_color='orange', line_width=2)
+line_zip2 = p.line('year_month', 'response_time', source=source_zip2, legend_label='ZIP Code 2', line_color='green', line_width=2)
+
+# Set up the dropdowns for ZIP codes
+select_zip1 = Select(title="Select ZIP Code 1", value=zip_codes[0], options=zip_codes)
+select_zip2 = Select(title="Select ZIP Code 2", value=zip_codes[1], options=zip_codes)
+
+# Update function for the plot
+def update(attr, old, new):
+    # Update source for ZIP Code 1
+    zip1_data = data[data['8'].astype(str) == select_zip1.value]  # Access ZIP code as '8'
+    source_zip1.data = ColumnDataSource(zip1_data).data
+
+    # Update source for ZIP Code 2
+    zip2_data = data[data['8'].astype(str) == select_zip2.value]
+    source_zip2.data = ColumnDataSource(zip2_data).data
+
+# Attach update callbacks
+select_zip1.on_change('value', update)
+select_zip2.on_change('value', update)
+
+# Arrange the layout
+layout = column(select_zip1, select_zip2, p)
+
+# Add the layout to the current document
+curdoc().add_root(layout)
+curdoc().title = "NYC 311 Response Time Dashboard"
